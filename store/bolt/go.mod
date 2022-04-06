@@ -2,11 +2,9 @@ module github.com/stevecallear/salsa/store/bolt
 
 go 1.18
 
-replace github.com/stevecallear/salsa => ../../
-
 require (
 	github.com/google/uuid v1.3.0
-	github.com/stevecallear/salsa v0.0.0-00010101000000-000000000000
+	github.com/stevecallear/salsa v0.0.0-20220406094505-af51007f59ec
 	go.etcd.io/bbolt v1.3.6
 )
 
