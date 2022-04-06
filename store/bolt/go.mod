@@ -1,0 +1,11 @@
+module github.com/stevecallear/salsa/store/bolt
+
+go 1.18
+
+require (
+	github.com/google/uuid v1.3.0
+	github.com/stevecallear/salsa v0.0.0-20220406094505-af51007f59ec
+	go.etcd.io/bbolt v1.3.6
+)
+
+require golang.org/x/sys v0.0.0-20200923182605-d9f96fdee20d // indirect
