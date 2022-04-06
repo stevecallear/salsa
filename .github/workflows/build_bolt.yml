@@ -8,25 +8,25 @@ on:
     types: [opened, synchronize, reopened]
 
 jobs:
-  build:
+  build_bolt:
     runs-on: ubuntu-latest
     strategy:
       fail-fast: false
       matrix:
         go: [1.18]
     steps:
-      - name: Checkout_Bolt
+      - name: Checkout
         uses: actions/checkout@v2
       - name: Setup Go
         uses: actions/setup-go@v2
         with:
           go-version: "${{ matrix.go }}"
-      - name: Build_Bolt
+      - name: Build
         working-directory: store/bolt
         run: |
           go vet .
           go test . -race -coverprofile=coverage_bolt.txt -covermode=atomic
-      - name: Coverage_Bolt
+      - name: Coverage
         uses: codecov/codecov-action@v2
         with:
-          files: ./coverage_bolt.txt
+          files: ./store/bolt/coverage_bolt.txt
