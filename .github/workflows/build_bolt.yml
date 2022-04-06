@@ -16,16 +16,19 @@ jobs:
         go: [1.18]
     steps:
       - name: Checkout
+        working-directory: store/bolt
         uses: actions/checkout@v2
       - name: Setup Go
         uses: actions/setup-go@v2
         with:
           go-version: "${{ matrix.go }}"
       - name: Build
+        working-directory: store/bolt
         run: |
           go vet .
-          go test . -race -coverprofile=coverage.txt -covermode=atomic
+          go test . -race -coverprofile=coverage_bolt.txt -covermode=atomic
       - name: Coverage
+        working-directory: store/bolt
         uses: codecov/codecov-action@v2
         with:
-          files: ./coverage.txt
+          files: ./coverage_coverage.txt
