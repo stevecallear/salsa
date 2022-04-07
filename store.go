@@ -74,10 +74,6 @@ func (s *Store[TI, TS]) Get(ctx context.Context, id TI) (*Aggregate[TS], error) 
 		return nil, err
 	}
 
-	if es.Data == nil && len(ees) < 1 {
-		return nil, errors.New("not found")
-	}
-
 	var vs VersionedState[TS]
 	if es.Data != nil {
 		if err = s.opts.Decoder.Decode(es.Data, &vs.State); err != nil {
