@@ -4,7 +4,7 @@ go 1.18
 
 require (
 	github.com/google/uuid v1.3.0
-	github.com/stevecallear/salsa v0.0.0-20220406094505-af51007f59ec
+	github.com/stevecallear/salsa v0.1.0
 	go.etcd.io/bbolt v1.3.6
 )
 
