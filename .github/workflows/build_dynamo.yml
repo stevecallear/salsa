@@ -1,0 +1,37 @@
+name: build_dynamo
+
+on:
+  push:
+    branches:
+      - master
+  pull_request:
+    types: [opened, synchronize, reopened]
+
+env:
+  DYNAMO_ENDPOINT_URL: http://localhost:8000
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        go: [1.18]
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v2
+      - name: Setup Go
+        uses: actions/setup-go@v2
+        with:
+          go-version: "${{ matrix.go }}"
+      - name: Setup DynamoDB
+        run docker run -p 8000:8000 amazon/dynamodb-local -jar DynamoDBLocal.jar -sharedDb
+      - name: Build
+        working-directory: store/dynamo
+        run: |
+          go vet .
+          go test . -race -coverprofile=coverage_dynamo.txt -covermode=atomic
+      - name: Coverage
+        uses: codecov/codecov-action@v2
+        with:
+          files: ./store/dynamo/coverage_dynamo.txt
