@@ -25,7 +25,7 @@ jobs:
         with:
           go-version: "${{ matrix.go }}"
       - name: Setup DynamoDB
-        run docker run -p 8000:8000 amazon/dynamodb-local -jar DynamoDBLocal.jar -sharedDb
+        run: docker run -p 8000:8000 amazon/dynamodb-local -jar DynamoDBLocal.jar -sharedDb &
       - name: Build
         working-directory: store/dynamo
         run: |
