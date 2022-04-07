@@ -1,0 +1,11 @@
+{
+	"name": "Go",
+	"dockerComposeFile": "docker-compose.yml",
+	"service": "dev",
+	"workspaceFolder": "/workspace",
+	"settings": {},
+	"extensions": [
+		"golang.Go",
+		"zxh404.vscode-proto3"
+	],
+}
