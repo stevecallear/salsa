@@ -121,7 +121,7 @@ func (tx *memTX) State(s EncodedState) error {
 	tx.mu.Lock()
 	defer tx.mu.Unlock()
 
-	if s.Version != tx.version+1 {
+	if s.Version != tx.version {
 		return errors.New("version conflict")
 	}
 

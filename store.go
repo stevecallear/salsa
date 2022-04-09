@@ -82,44 +82,31 @@ func (s *Store[TI, TS]) Get(ctx context.Context, id TI) (*Aggregate[TS], error) 
 		vs.Version = es.Version
 	}
 
-	for _, ee := range ees {
-		e, err := s.opts.EventResolver.Resolve(ee.Type)
+	des := make([]Event[TS], len(ees))
+	for i, ee := range ees {
+		de, err := s.opts.EventResolver.Resolve(ee.Type)
 		if err != nil {
 			return nil, err
 		}
 
-		if err = s.opts.Decoder.Decode(ee.Data, e); err != nil {
+		if err = s.opts.Decoder.Decode(ee.Data, de); err != nil {
 			return nil, err
 		}
 
-		vs.State, err = e.Apply(vs.State)
-		if err != nil {
-			return nil, err
-		}
-
-		vs.Version++
+		des[i] = de
 	}
 
-	return &Aggregate[TS]{
-		initState: vs,
-		currState: vs.State,
-	}, nil
+	return NewAggregate(vs, des...)
 }
 
 // Save saves the specified aggregate
 func (s *Store[TI, TS]) Save(ctx context.Context, id TI, a *Aggregate[TS]) error {
-	vs := a.InitState()
-
 	var err error
 	var b []byte
 	return s.db.Write(ctx, id, func(tx DBTx) error {
-		for _, e := range a.Events() {
-			vs.State, err = e.Apply(vs.State)
-			if err != nil {
-				return err
-			}
-			vs.Version++
+		v := a.Versions()
 
+		for i, e := range a.Events() {
 			b, err = s.opts.Encoder.Encode(e)
 			if err != nil {
 				return err
@@ -127,25 +114,24 @@ func (s *Store[TI, TS]) Save(ctx context.Context, id TI, a *Aggregate[TS]) error
 
 			if err = tx.Event(EncodedEvent{
 				Type:    e.Type(),
-				Version: vs.Version,
+				Version: v.Initial + uint64(i+1),
 				Data:    b,
 			}); err != nil {
 				return err
 			}
+		}
 
-			if vs.Version%uint64(s.opts.SnapshotRate) == 0 {
-				vs.Version++
-				b, err = s.opts.Encoder.Encode(vs.State)
-				if err != nil {
-					return err
-				}
+		if v.Current-v.State > uint64(s.opts.SnapshotRate) {
+			b, err = s.opts.Encoder.Encode(a.State())
+			if err != nil {
+				return err
+			}
 
-				if err = tx.State(EncodedState{
-					Version: vs.Version,
-					Data:    b,
-				}); err != nil {
-					return err
-				}
+			if err = tx.State(EncodedState{
+				Version: v.Current,
+				Data:    b,
+			}); err != nil {
+				return err
 			}
 		}
 
