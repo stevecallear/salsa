@@ -30,7 +30,7 @@ func (s *AccountService) CreateAccount(ctx context.Context, id string, balance i
 		&CreateAccountEvent{ID: id},
 		&CreditAccountEvent{Amount: balance},
 	} {
-		if err := a.Apply(e); err != nil {
+		if _, err := a.Apply(e); err != nil {
 			return err
 		}
 	}
@@ -44,7 +44,7 @@ func (s *AccountService) CreditAccount(ctx context.Context, id string, amount in
 		return err
 	}
 
-	if err := a.Apply(&CreditAccountEvent{Amount: amount}); err != nil {
+	if _, err := a.Apply(&CreditAccountEvent{Amount: amount}); err != nil {
 		return err
 	}
 
