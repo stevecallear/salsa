@@ -128,7 +128,7 @@ func assertAggregateEqual(t *testing.T, act *salsa.Aggregate[state], exp aggrega
 }
 
 func newAggregate(s salsa.VersionedState[state], es ...salsa.Event[state]) *salsa.Aggregate[state] {
-	a, err := salsa.NewAggregate[state](s, es...)
+	a, err := salsa.NewAggregate(s, es...)
 	if err != nil {
 		panic(err)
 	}
