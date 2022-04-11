@@ -33,7 +33,7 @@ func New[T any](bdb *bbolt.DB, optFns ...func(*salsa.Options[T])) *salsa.Store[s
 }
 
 // Read reads most recent state and events for the specified id
-func (d *db) Read(ctx context.Context, id string, _ int) (salsa.EncodedState, []salsa.EncodedEvent, error) {
+func (d *db) Read(ctx context.Context, id string) (salsa.EncodedState, []salsa.EncodedEvent, error) {
 	var state salsa.EncodedState
 	var events []salsa.EncodedEvent
 
