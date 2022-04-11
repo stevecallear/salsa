@@ -33,7 +33,7 @@ func CreateTable(ctx context.Context, c *dynamodb.Client, tableName string) erro
 		TableName: aws.String(tableName),
 		AttributeDefinitions: []types.AttributeDefinition{
 			{
-				AttributeName: aws.String("id"),
+				AttributeName: aws.String("pk"),
 				AttributeType: types.ScalarAttributeTypeS,
 			},
 			{
@@ -43,7 +43,7 @@ func CreateTable(ctx context.Context, c *dynamodb.Client, tableName string) erro
 		},
 		KeySchema: []types.KeySchemaElement{
 			{
-				AttributeName: aws.String("id"),
+				AttributeName: aws.String("pk"),
 				KeyType:       types.KeyTypeHash,
 			},
 			{
@@ -73,45 +73,71 @@ func New[T any](c *dynamodb.Client, tableName string, optFns ...func(*salsa.Opti
 }
 
 // Read reads most recent state and events for the specified id
-func (d *db) Read(ctx context.Context, id string, limit int) (salsa.EncodedState, []salsa.EncodedEvent, error) {
+func (d *db) Read(ctx context.Context, id string, _ int) (salsa.EncodedState, []salsa.EncodedEvent, error) {
 	res, err := d.client.Query(ctx, &dynamodb.QueryInput{
 		TableName:              aws.String(d.tableName),
-		KeyConditionExpression: aws.String("#i = :i"),
+		KeyConditionExpression: aws.String("#pk = :pk"),
 		ExpressionAttributeNames: map[string]string{
-			"#i": "id",
+			"#pk": "pk",
 		},
 		ExpressionAttributeValues: map[string]types.AttributeValue{
-			":i": &types.AttributeValueMemberS{Value: id},
+			":pk": &types.AttributeValueMemberS{Value: stateKey(id)},
 		},
 		ScanIndexForward: aws.Bool(false),
 		ConsistentRead:   aws.Bool(true),
-		Limit:            aws.Int32(int32(limit)),
+		Limit:            aws.Int32(int32(1)),
 	})
 	if err != nil {
 		return salsa.EncodedState{}, nil, err
 	}
 
-	if len(res.Items) < 1 {
-		return salsa.EncodedState{}, nil, errors.New("not found")
+	var state salsa.EncodedState
+	if len(res.Items) > 0 {
+		state, err = d.avToState(res.Items[0])
+		if err != nil {
+			return salsa.EncodedState{}, nil, err
+		}
 	}
 
-	var state salsa.EncodedState
 	var events []salsa.EncodedEvent
+	var lastKey map[string]types.AttributeValue
+	for {
+		res, err = d.client.Query(ctx, &dynamodb.QueryInput{
+			TableName:              aws.String(d.tableName),
+			KeyConditionExpression: aws.String("#pk = :pk and #v > :v"),
+			ExpressionAttributeNames: map[string]string{
+				"#pk": "pk",
+				"#v":  "version",
+			},
+			ExpressionAttributeValues: map[string]types.AttributeValue{
+				":pk": &types.AttributeValueMemberS{Value: eventKey(id)},
+				":v":  &types.AttributeValueMemberN{Value: strconv.FormatUint(state.Version, 10)},
+			},
+			ScanIndexForward:  aws.Bool(false),
+			ConsistentRead:    aws.Bool(true),
+			ExclusiveStartKey: lastKey,
+		})
+		if err != nil {
+			return salsa.EncodedState{}, nil, err
+		}
 
-	for _, itm := range res.Items {
-		if d.avIsState(itm) {
-			state, err = d.avToState(itm)
-			if err != nil {
-				return salsa.EncodedState{}, nil, err
-			}
-			break
-		} else {
+		for _, itm := range res.Items {
 			var e salsa.EncodedEvent
 			if e, err = d.avToEvent(itm); err != nil {
 				return salsa.EncodedState{}, nil, err
 			}
 			events = append(events, e)
 		}
+
+		if res.LastEvaluatedKey == nil {
+			break
+		}
+
+		lastKey = res.LastEvaluatedKey
+	}
+
+	if state.Version == 0 && len(events) < 1 {
+		return salsa.EncodedState{}, nil, errors.New("not found")
 	}
 
 	reverse(events)
@@ -136,14 +162,6 @@ func (d *db) Write(ctx context.Context, id string, fn func(salsa.DBTx) error) er
 
 	_, err := d.client.TransactWriteItems(ctx, in)
 	return err
-}
-
-func (s *db) avIsState(av map[string]types.AttributeValue) bool {
-	if v, ok := av["type"].(*types.AttributeValueMemberS); ok {
-		return v.Value == stateType
-	}
-
-	return false
 }
 
 func (db *db) avToState(av map[string]types.AttributeValue) (salsa.EncodedState, error) {
@@ -196,10 +214,10 @@ func (t *tx) append(av map[string]types.AttributeValue) {
 	t.input.TransactItems = append(t.input.TransactItems, types.TransactWriteItem{
 		Put: &types.Put{
 			TableName:           aws.String(t.tableName),
-			ConditionExpression: aws.String("(attribute_not_exists (#i)) AND (attribute_not_exists (#v))"),
+			ConditionExpression: aws.String("(attribute_not_exists (#pk)) AND (attribute_not_exists (#v))"),
 			ExpressionAttributeNames: map[string]string{
-				"#i": "id",
-				"#v": "version",
+				"#pk": "pk",
+				"#v":  "version",
 			},
 			Item: av,
 		},
@@ -209,7 +227,7 @@ func (t *tx) append(av map[string]types.AttributeValue) {
 func (t *tx) stateToAV(s salsa.EncodedState) map[string]types.AttributeValue {
 	ve := strconv.FormatUint(s.Version, 10)
 	return map[string]types.AttributeValue{
-		"id":      &types.AttributeValueMemberS{Value: t.id},
+		"pk":      &types.AttributeValueMemberS{Value: stateKey(t.id)},
 		"version": &types.AttributeValueMemberN{Value: ve},
 		"type":    &types.AttributeValueMemberS{Value: stateType},
 		"data":    &types.AttributeValueMemberS{Value: string(s.Data)},
@@ -219,11 +237,21 @@ func (t *tx) stateToAV(s salsa.EncodedState) map[string]types.AttributeValue {
 func (t *tx) eventToAV(e salsa.EncodedEvent) map[string]types.AttributeValue {
 	ve := strconv.FormatUint(e.Version, 10)
 	return map[string]types.AttributeValue{
-		"id":      &types.AttributeValueMemberS{Value: t.id},
+		"pk":      &types.AttributeValueMemberS{Value: eventKey(t.id)},
 		"version": &types.AttributeValueMemberN{Value: ve},
 		"type":    &types.AttributeValueMemberS{Value: e.Type},
 		"data":    &types.AttributeValueMemberS{Value: string(e.Data)},
 	}
+}
+
+func stateKey(id string) string {
+	const statePrefix = "S#"
+	return statePrefix + id
+}
+
+func eventKey(id string) string {
+	const eventPrefix = "E#"
+	return eventPrefix + id
 }
 
 func reverse[T any](s []T) {
