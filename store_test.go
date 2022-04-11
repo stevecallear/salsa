@@ -24,7 +24,7 @@ func TestStore(t *testing.T) {
 	t.Run("should write the aggregate", func(t *testing.T) {
 		a := new(salsa.Aggregate[state])
 		for i := 1; i <= 12; i++ {
-			err := a.Apply(&event{Amount: i * 10})
+			_, err := a.Apply(&event{Amount: i * 10})
 			assertErrorExists(t, err, false)
 		}
 
@@ -34,23 +34,51 @@ func TestStore(t *testing.T) {
 
 	t.Run("should return an error if a conflict occurs", func(t *testing.T) {
 		a := new(salsa.Aggregate[state])
-		err := a.Apply(&event{Amount: 100})
+		_, err := a.Apply(&event{Amount: 100})
 		assertErrorExists(t, err, false)
 
 		err = sut.Save(context.Background(), id, a)
 		assertErrorExists(t, err, true)
 	})
 
-	t.Run("should read the aggregate", func(t *testing.T) {
+	t.Run("should read the aggregate (state)", func(t *testing.T) {
 		act, err := sut.Get(context.Background(), id)
 		assertErrorExists(t, err, false)
 
 		assertAggregateEqual(t, act, aggregate{
-			initState: salsa.VersionedState[state]{
-				Version: 14, // 12 events and 2 snapshots
-				State:   state{Balance: 780},
+			state: state{Balance: 780},
+			versions: salsa.Versions{
+				State:   12,
+				Initial: 12,
+				Current: 12,
 			},
-			currState: state{Balance: 780},
+		})
+	})
+
+	t.Run("should write additional events", func(t *testing.T) {
+		a, err := sut.Get(context.Background(), id)
+		assertErrorExists(t, err, false)
+
+		for i := 1; i <= 2; i++ {
+			_, err := a.Apply(&event{Amount: i * 10})
+			assertErrorExists(t, err, false)
+		}
+
+		err = sut.Save(context.Background(), id, a)
+		assertErrorExists(t, err, false)
+	})
+
+	t.Run("should read the aggregate (state and events)", func(t *testing.T) {
+		act, err := sut.Get(context.Background(), id)
+		assertErrorExists(t, err, false)
+
+		assertAggregateEqual(t, act, aggregate{
+			state: state{Balance: 810},
+			versions: salsa.Versions{
+				State:   12,
+				Initial: 14,
+				Current: 14,
+			},
 		})
 	})
 }
