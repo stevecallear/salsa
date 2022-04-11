@@ -8,7 +8,7 @@ require (
 	github.com/aws/aws-sdk-go-v2/credentials v1.11.2
 	github.com/aws/aws-sdk-go-v2/service/dynamodb v1.15.3
 	github.com/google/uuid v1.3.0
-	github.com/stevecallear/salsa v0.1.0
+	github.com/stevecallear/salsa v0.2.1
 )
 
 require (

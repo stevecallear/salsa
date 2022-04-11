@@ -19,17 +19,12 @@ type (
 		bucket *bbolt.Bucket
 	}
 
-	item struct {
-		key  []byte
-		data []byte
-	}
-
 	itemType uint8
 )
 
 const (
 	itemTypeEvent itemType = iota + 1
-	itemTypeSnapshot
+	itemTypeState
 )
 
 // New returns a new event store backed by boltdb
@@ -38,7 +33,7 @@ func New[T any](bdb *bbolt.DB, optFns ...func(*salsa.Options[T])) *salsa.Store[s
 }
 
 // Read reads most recent state and events for the specified id
-func (d *db) Read(ctx context.Context, id string, _ int) (salsa.EncodedState, []salsa.EncodedEvent, error) {
+func (d *db) Read(ctx context.Context, id string) (salsa.EncodedState, []salsa.EncodedEvent, error) {
 	var state salsa.EncodedState
 	var events []salsa.EncodedEvent
 
@@ -54,7 +49,7 @@ func (d *db) Read(ctx context.Context, id string, _ int) (salsa.EncodedState, []
 		for k, v := c.Last(); k != nil; k, v = c.Prev() {
 			ver, ityp, etyp := decodeKey(k)
 			switch ityp {
-			case itemTypeSnapshot:
+			case itemTypeState:
 				state = salsa.EncodedState{
 					Version: ver,
 					Data:    v,
@@ -105,7 +100,7 @@ func (t *tx) Event(e salsa.EncodedEvent) error {
 
 // State writes the specified state
 func (t *tx) State(s salsa.EncodedState) error {
-	k := encodeKey(s.Version, itemTypeSnapshot, "")
+	k := encodeKey(s.Version, itemTypeState, "")
 	if b := t.bucket.Get(k); b != nil {
 		return errors.New("version conflict")
 	}
