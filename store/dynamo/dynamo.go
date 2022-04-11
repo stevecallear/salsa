@@ -73,7 +73,7 @@ func New[T any](c *dynamodb.Client, tableName string, optFns ...func(*salsa.Opti
 }
 
 // Read reads most recent state and events for the specified id
-func (d *db) Read(ctx context.Context, id string, _ int) (salsa.EncodedState, []salsa.EncodedEvent, error) {
+func (d *db) Read(ctx context.Context, id string) (salsa.EncodedState, []salsa.EncodedEvent, error) {
 	res, err := d.client.Query(ctx, &dynamodb.QueryInput{
 		TableName:              aws.String(d.tableName),
 		KeyConditionExpression: aws.String("#pk = :pk"),
