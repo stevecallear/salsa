@@ -11,7 +11,7 @@
 go get github.com/stevecallear/salsa@latest
 ```
 
-See the [example](#) for a basic implementation using an in-memory event store.
+See the [example](https://github.com/stevecallear/salsa/tree/master/example) for a basic implementation using an in-memory event store.
 
 ## Aggregate
 
@@ -46,13 +46,11 @@ s := salsa.NewStore(db, salsa.WithResolver[state](salsa.EventResolverFunc[state]
 
 ### Snapshot Rate
 
-The store uses snapshots to reduce the amount of data that needs to be retrieved to build an aggregate. By default a snapshot is persisted every 10 events, but this value can be configured as part of the store options.
+The store uses snapshots to reduce the amount of data that needs to be retrieved to build an aggregate. By default a snapshot is persisted after at least 10 events have been applied. This value can be configured as part of the store options.
 
 ```
 s := salsa.NewStore(db, salsa.WithSnapshotRate[state](100))
 ```
-
-> Note: the store builds snapshots by replaying all events from the initial aggregate state. As a result, events must operate only on the supplied state.
 
 ### Encoding
 
