@@ -39,7 +39,7 @@ func NewMemoryStore[TI comparable, TS any](optFns ...func(*Options[TS])) *Store[
 }
 
 // Read returns the initial state and events for the specified aggregate
-func (db *memDB[T]) Read(ctx context.Context, id T, _ int) (EncodedState, []EncodedEvent, error) {
+func (db *memDB[T]) Read(ctx context.Context, id T) (EncodedState, []EncodedEvent, error) {
 	db.mu.RLock()
 	defer db.mu.RUnlock()
 
