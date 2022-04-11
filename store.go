@@ -35,7 +35,7 @@ type (
 
 	// DB represents an events DB
 	DB[TI comparable] interface {
-		Read(ctx context.Context, id TI, limit int) (EncodedState, []EncodedEvent, error)
+		Read(ctx context.Context, id TI) (EncodedState, []EncodedEvent, error)
 		Write(ctx context.Context, id TI, fn func(DBTx) error) error
 	}
 
@@ -69,7 +69,7 @@ func NewStore[TI comparable, TS any](db DB[TI], optFns ...func(*Options[TS])) *S
 
 // Get retrieves the aggregate with the specified id
 func (s *Store[TI, TS]) Get(ctx context.Context, id TI) (*Aggregate[TS], error) {
-	es, ees, err := s.db.Read(ctx, id, s.opts.SnapshotRate)
+	es, ees, err := s.db.Read(ctx, id)
 	if err != nil {
 		return nil, err
 	}
